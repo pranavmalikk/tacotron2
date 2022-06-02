@@ -1,9 +1,11 @@
+import os
 import random
 import numpy as np
 import torch
 import torch.utils.data
 
 import layers
+from utils import clean_text
 from utils import load_wav_to_torch, load_filepaths_and_text
 from text import text_to_sequence
 
@@ -14,9 +16,11 @@ class TextMelLoader(torch.utils.data.Dataset):
         2) normalizes text and converts them to sequences of one-hot vectors
         3) computes mel-spectrograms from audio files.
     """
-    def __init__(self, audiopaths_and_text, hparams):
-        self.audiopaths_and_text = load_filepaths_and_text(audiopaths_and_text)
-        self.text_cleaners = hparams.text_cleaners
+    def __init__(self, filepaths_and_text, dataset_path, symbols, hparams):
+        self.audiopaths_and_text = load_filepaths_and_text(filepaths_and_text)
+        self.dataset_path = dataset_path
+        self.symbols = symbols
+        self.symbol_to_id = {s: i for i, s in enumerate(symbols)}
         self.max_wav_value = hparams.max_wav_value
         self.sampling_rate = hparams.sampling_rate
         self.load_mel_from_disk = hparams.load_mel_from_disk
@@ -28,13 +32,41 @@ class TextMelLoader(torch.utils.data.Dataset):
         random.shuffle(self.audiopaths_and_text)
 
     def get_mel_text_pair(self, audiopath_and_text):
-        # separate filename and text
+        """
+        Extracts a text and mel pair for a given entry
+
+        Parameters
+        ----------
+        audiopath_and_text : (str, str)
+            Audio path and text transcription pair
+
+        Returns
+        -------
+        (Tensor, Tensor)
+            Symbol tensor (text) and mel spectrogram tensor (audio)
+        """
         audiopath, text = audiopath_and_text[0], audiopath_and_text[1]
         text = self.get_text(text)
         mel = self.get_mel(audiopath)
         return (text, mel)
 
+
     def get_mel(self, filename):
+        """
+        Gets mel data for a given audio file.
+
+        Parameters
+        ----------
+        filename : str
+            Path to audio file
+
+        Returns
+        -------
+        Tensor
+            Mel spectrogram tensor
+        """
+        filepath = os.path.join(self.dataset_path, filename)
+
         if not self.load_mel_from_disk:
             audio, sampling_rate = load_wav_to_torch(filename)
             if sampling_rate != self.stft.sampling_rate:
@@ -54,7 +86,22 @@ class TextMelLoader(torch.utils.data.Dataset):
         return melspec
 
     def get_text(self, text):
-        text_norm = torch.IntTensor(text_to_sequence(text, self.text_cleaners))
+        """
+        Convert text to sequence of one-hot vectors
+        
+        Parameters
+        ----------
+        text : str
+            Text to convert to sequence
+        
+        Returns
+        -------
+        Tensor
+            Int tensor of symbol ids
+        """
+        text = clean_text(text, text.symbols)
+        sequence = [self.symbol_to_id[s] for s in text if s != "_"]
+        text_norm = torch.IntTensor(sequence)
         return text_norm
 
     def __getitem__(self, index):
