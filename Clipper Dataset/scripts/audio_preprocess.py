@@ -34,7 +34,7 @@ from IPython.display import Audio, display
 import random
 import ast
 import pickle
-#from trimsilence import Preprocessor
+from trimsilence import Preprocessor
 #import soundfilemanipulation 
 
 #Have to be one path outside of MEGAsync imports (within cloud drive)
