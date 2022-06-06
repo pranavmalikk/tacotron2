@@ -26,6 +26,42 @@ def load_filepaths_and_text(filename, split="|"):
         filepaths_and_text = [line.strip().split(split) for line in f]
     return filepaths_and_text
 
+def get_gpu_memory(gpu_index):
+    """
+    Get available memory of a GPU.
+
+    Parameters
+    ----------
+    gpu_index : int
+        Index of GPU
+
+    Returns
+    -------
+    int
+        Available GPU memory in GB
+    """
+    gpu_memory = torch.cuda.get_device_properties(gpu_index).total_memory
+    memory_in_use = torch.cuda.memory_allocated(gpu_index)
+    available_memory = gpu_memory - memory_in_use
+    return available_memory // 1024 // 1024 // 1024
+
+
+def get_available_memory():
+    """
+    Get available GPU memory in GB.
+
+    Returns
+    -------
+    int
+        Available GPU memory in GB
+    """
+    available_memory_gb = 0
+
+    for i in range(torch.cuda.device_count()):
+        available_memory_gb += get_gpu_memory(i)
+
+    return available_memory_gb
+
 def load_labels_file(filepath):
     """
     Load labels file
